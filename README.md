@@ -2,7 +2,7 @@
 
 A compact voice companion built on the **Waveshare ESP32-S3-Touch-AMOLED-1.75C**, combining **Muse** conversations with **ElevenLabs** speech. Its round 1.75-inch AMOLED touchscreen shows an animated mascot, conversation replies, and device settings; the onboard microphones and speaker let you talk to Muse directly.
 
-Hold the top button to speak, then release it to send. The device streams your voice to Muse over Wi-Fi, receives a reply, displays the text, and speaks it using ElevenLabs' Cute Emily voice. Speak replies can be switched off for text-only answers. The bottom button controls display sleep and device shutdown.
+Hold the top button to speak, then release it to send. The device streams your voice to Muse over Wi-Fi, receives a reply, displays the text, and speaks it using ElevenLabs' Emily voice. Speak replies can be switched off for text-only answers. The bottom button controls display sleep and device shutdown.
 
 The firmware builds on the Muse Gadget SDK and ESP-IDF. Pairing and Wi-Fi setup use the Muse app over Bluetooth. Muse provides the conversation and voice transcription; ElevenLabs turns the finished reply into speech. The device does not use a Deepgram API key.
 
@@ -15,10 +15,10 @@ The firmware builds on the Muse Gadget SDK and ESP-IDF. Pairing and Wi-Fi setup 
 | Computer and tools | macOS or Linux, Git, **ESP-IDF v6.0.1** and its ESP32-S3 toolchain, plus Python with `pyserial` and `esptool` in the activated IDF environment. |
 | Network | A 2.4 GHz Wi-Fi network with internet access to Muse and ElevenLabs. |
 | Muse | A Muse account, the Muse app on a Bluetooth-capable phone for pairing and Wi-Fi setup, and a Gadget SDK token from `gadgets.muse.ai` → Account → SDK tokens. |
-| ElevenLabs speech | An ElevenLabs account with available text-to-speech quota, a secret API key starting with `sk_`, and a voice accessible to that account. The default is Cute Emily; set `ELEVENLABS_VOICE_ID` to use another voice. |
+| ElevenLabs speech | An ElevenLabs account with available text-to-speech quota, a secret API key starting with `sk_`, and a voice accessible to that account. The default is Emily; set `ELEVENLABS_VOICE_ID` to use another voice. |
 | Firmware source | The modified SDK source under `muse-gadget-sdk/`, including the ElevenLabs integration and this board's configuration. The current Git link does not populate that source on a fresh clone; see [Future-agent handoff](#future-agent-handoff). |
 
-For spoken replies, create an ignored `.env` in the project root containing `ELEVENLABS_API_KEY` and, optionally, `ELEVENLABS_VOICE_ID`. These values are compiled into the firmware, so changes require reconfiguration, rebuilding, and flashing. Without an ElevenLabs key, replies can still be displayed as text.
+For spoken replies, create an ignored `.env` in the project root containing `ELEVENLABS_API_KEY` and, optionally, `ELEVENLABS_VOICE_ID`. You can also export `ELEVENLABS_VOICE_ID` in the shell before configuring the build; a nonempty shell value takes priority over `.env`. These values are compiled into the firmware, so changes require reconfiguration, rebuilding, and flashing. Without an ElevenLabs key, replies can still be displayed as text.
 
 Configure the Muse SDK token separately as `CONFIG_GADGET_SDK_TOKEN` in the board build's `sdkconfig` or through `idf.py menuconfig`. A `MUSE_SDK_TOKEN` entry in `.env` is not automatically loaded by the current build helper. Use the `waveshare-s3-175c` profile (`s3` in `tools/muse/board.sh`), then pair the flashed device in the Muse app. See [Build and flash](#build-and-flash) for commands and [Speech](#speech) for credential and voice details.
 
@@ -32,7 +32,7 @@ All previously documented issues are resolved. ElevenLabs speech is working, con
 
 | Resolved issue | Fix or current behavior |
 |---|---|
-| ElevenLabs replies stayed silent | Correct secret key and Cute Emily voice ID, chunked-response handling, and cross-signed certificate verification. Live playback was verified after the 3 Oct flash. |
+| ElevenLabs replies stayed silent | Correct secret key and Emily voice ID, chunked-response handling, and cross-signed certificate verification. Live playback was verified after the 3 Oct flash. |
 | Floating top-button input triggered presses | Internal pull-down on active-high GPIO3, debounce, and a sustained press before listening. |
 | Accidental touch or tap wake/send | One-second button hold to wake this 1.75C; sleeping touch is swallowed and face taps only animate. |
 | Mascot overlapped reply text | Mascot hidden during thinking and speaking; replies use one left-aligned page. |
@@ -103,16 +103,16 @@ The key and voice are compiled in. They are not read at runtime.
 
 - Repo file: `/Users/dep/projects/muse/.env`
 - `ELEVENLABS_API_KEY` must start with `sk_`. A 64-character hex value is an API key id. ElevenLabs rejects it with `api_key_id_used_as_api_key`. The build leaves the key empty in that case, and the firmware does not call the network.
-- Optional `ELEVENLABS_VOICE_ID` overrides the default. This `.env` does not set it.
+- Voice selection checks a nonempty shell `ELEVENLABS_VOICE_ID`, then the `.env` value. If the selected value is empty after trimming whitespace and surrounding double quotes, it falls back to Emily (`iYSNpS2X0Oqe8aXoNn0j`).
 - CMake reads `${COMPONENT_DIR}/../../../../.env` (four levels up to this workspace root). Three levels is `muse-gadget-sdk/.env`, which is the wrong file.
 - The filled header is `build-muse-waveshare-s3-175c/esp-idf/muse/elevenlabs_key.h`. It is not in the source tree. Changing `.env` does nothing until CMake runs again (`idf.py reconfigure`).
 - The CMake status line says `key loaded` or `no secret key`. It does not print the key.
 
-Voice id for Cute Emily, 20 characters. Character 9 is the digit zero. Character 10 is capital O:
+Voice id for Emily, 20 characters. Character 9 is the digit zero. Character 10 is capital O:
 
 `iYSNpS2X0Oqe8aXoNn0j`
 
-A 19-character copy that drops the capital O is a different id. ElevenLabs returns `voice_not_found`, and the gadget shows the text with no audio. The host can confirm the id with `GET /v1/voices` (name `Cute Emily`, category `generated`). `POST .../stream` with `eleven_flash_v2_5` and `mp3_22050_32` returns HTTP 200, `Content-Type: audio/mpeg`, chunked, and the body starts with an ID3 header.
+A 19-character copy that drops the capital O is a different id. ElevenLabs returns `voice_not_found`, and the gadget shows the text with no audio. The host can confirm the id with `GET /v1/voices` (name `Emily`, category `generated`). `POST .../stream` with `eleven_flash_v2_5` and `mp3_22050_32` returns HTTP 200, `Content-Type: audio/mpeg`, chunked, and the body starts with an ID3 header.
 
 `DEEPGRAM_API_KEY` in the local `.env` is an unused leftover: no firmware or build code reads it, and setup does not require a Deepgram account. The active `VOICE_NOTE = 1` path streams a WAV voice note to Muse's `/chat/stream`; transcription happens on the Muse server. This repository does not establish which transcription provider Muse uses internally. `MUSE_SDK_TOKEN` is also present in `.env`, but the current build helper requires the SDK token to be configured separately as described under Setup requirements.
 
