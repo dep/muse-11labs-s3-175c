@@ -4,7 +4,23 @@ A compact voice companion built on the **Waveshare ESP32-S3-Touch-AMOLED-1.75C**
 
 Hold the top button to speak, then release it to send. The device streams your voice to Muse over Wi-Fi, receives a reply, displays the text, and speaks it using ElevenLabs' Cute Emily voice. Speak replies can be switched off for text-only answers. The bottom button controls display sleep and device shutdown.
 
-The firmware builds on the Muse Gadget SDK and ESP-IDF. Pairing and Wi-Fi setup use the Muse app over Bluetooth. Muse provides the conversation and voice transcription; ElevenLabs turns the finished reply into speech.
+The firmware builds on the Muse Gadget SDK and ESP-IDF. Pairing and Wi-Fi setup use the Muse app over Bluetooth. Muse provides the conversation and voice transcription; ElevenLabs turns the finished reply into speech. The device does not use a Deepgram API key.
+
+## Setup requirements
+
+| Requirement | What you need |
+|---|---|
+| Hardware | **Waveshare ESP32-S3-Touch-AMOLED-1.75C**, with its onboard display, microphones, and speaker. This profile targets the 1.75C with 32 MB flash and 8 MB PSRAM. |
+| USB | A USB-C cable that carries data, for power, flashing, and serial diagnostics. A battery is optional for portable use. |
+| Computer and tools | macOS or Linux, Git, **ESP-IDF v6.0.1** and its ESP32-S3 toolchain, plus Python with `pyserial` and `esptool` in the activated IDF environment. |
+| Network | A 2.4 GHz Wi-Fi network with internet access to Muse and ElevenLabs. |
+| Muse | A Muse account, the Muse app on a Bluetooth-capable phone for pairing and Wi-Fi setup, and a Gadget SDK token from `gadgets.muse.ai` → Account → SDK tokens. |
+| ElevenLabs speech | An ElevenLabs account with available text-to-speech quota, a secret API key starting with `sk_`, and a voice accessible to that account. The default is Cute Emily; set `ELEVENLABS_VOICE_ID` to use another voice. |
+| Firmware source | The modified SDK source under `muse-gadget-sdk/`, including the ElevenLabs integration and this board's configuration. The current Git link does not populate that source on a fresh clone; see [Future-agent handoff](#future-agent-handoff). |
+
+For spoken replies, create an ignored `.env` in the project root containing `ELEVENLABS_API_KEY` and, optionally, `ELEVENLABS_VOICE_ID`. These values are compiled into the firmware, so changes require reconfiguration, rebuilding, and flashing. Without an ElevenLabs key, replies can still be displayed as text.
+
+Configure the Muse SDK token separately as `CONFIG_GADGET_SDK_TOKEN` in the board build's `sdkconfig` or through `idf.py menuconfig`. A `MUSE_SDK_TOKEN` entry in `.env` is not automatically loaded by the current build helper. Use the `waveshare-s3-175c` profile (`s3` in `tools/muse/board.sh`), then pair the flashed device in the Muse app. See [Build and flash](#build-and-flash) for commands and [Speech](#speech) for credential and voice details.
 
 The SDK source and docs live under `muse-gadget-sdk/`. The rest of this README records this board's hardware, current firmware behavior, resolved issues, and details needed to continue work.
 
@@ -98,7 +114,7 @@ Voice id for Cute Emily, 20 characters. Character 9 is the digit zero. Character
 
 A 19-character copy that drops the capital O is a different id. ElevenLabs returns `voice_not_found`, and the gadget shows the text with no audio. The host can confirm the id with `GET /v1/voices` (name `Cute Emily`, category `generated`). `POST .../stream` with `eleven_flash_v2_5` and `mp3_22050_32` returns HTTP 200, `Content-Type: audio/mpeg`, chunked, and the body starts with an ID3 header.
 
-`.env` also holds `MUSE_SDK_TOKEN` and `DEEPGRAM_API_KEY`. Leave them alone.
+`DEEPGRAM_API_KEY` in the local `.env` is an unused leftover: no firmware or build code reads it, and setup does not require a Deepgram account. The active `VOICE_NOTE = 1` path streams a WAV voice note to Muse's `/chat/stream`; transcription happens on the Muse server. This repository does not establish which transcription provider Muse uses internally. `MUSE_SDK_TOKEN` is also present in `.env`, but the current build helper requires the SDK token to be configured separately as described under Setup requirements.
 
 ## Resolved speech certificate issue
 
